@@ -512,12 +512,12 @@ else
   aws iam create-policy \
     --policy-name "${POLICY_NAME}" \
     --policy-document "${POLICY_DOCUMENT}"
-
-  # Attach the policy to the role
-  aws iam attach-role-policy \
-    --role-name "${OIDC_ROLE_NAME}" \
-    --policy-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/${POLICY_NAME}"
 fi
+
+# Ensure policy is attached to the role (idempotent)
+aws iam attach-role-policy \
+  --role-name "${OIDC_ROLE_NAME}" \
+  --policy-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/${POLICY_NAME}" 2>/dev/null || true
 
 log_info "IAM role configured: ${OIDC_ROLE_NAME}"
 

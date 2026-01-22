@@ -245,7 +245,8 @@ resource "aws_bedrock_model_invocation_logging_configuration" "main" {
 resource "aws_s3_bucket" "bedrock_logs" {
   count = var.enable_model_logging ? 1 : 0
 
-  bucket = "${local.bedrock_prefix}-logs-${data.aws_caller_identity.current.account_id}"
+  bucket        = "${local.bedrock_prefix}-logs-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
 
   tags = local.common_tags
 }
