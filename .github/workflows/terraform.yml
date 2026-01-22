@@ -1,0 +1,121 @@
+# =============================================================================
+# Terraform CI/CD Pipeline - Bedrock
+# =============================================================================
+# Manual dispatch workflow for terraform plan and apply.
+# Uses OIDC for keyless AWS authentication (no long-lived secrets).
+# =============================================================================
+
+name: Terraform
+
+on:
+  workflow_dispatch:  # Manual runs only
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: '1.5'
+  TF_WORKING_DIR: 'terraform/environments/dev'
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    env:
+      # EKS cluster name (from project_kubernetes)
+      TF_VAR_eks_cluster_name: ${{ secrets.TF_VAR_eks_cluster_name }}
+
+    steps:
+      # -------------------------------------------------------------------
+      # Checkout & Setup
+      # -------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install awscurl
+        run: pip install awscurl
+
+      # -------------------------------------------------------------------
+      # Terraform Init & Validate
+      # -------------------------------------------------------------------
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ secrets.TF_STATE_KEY }}" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check -diff
+        continue-on-error: true
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      # -------------------------------------------------------------------
+      # Terraform Plan
+      # -------------------------------------------------------------------
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan -no-color -out=tfplan 2>&1 | tee plan_output.txt
+          echo "plan_exitcode=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+          retention-days: 7
+
+      - name: Check Plan Status
+        if: steps.plan.outputs.plan_exitcode != '0'
+        run: |
+          echo "Terraform plan failed. Check the logs above."
+          exit 1
+
+      # -------------------------------------------------------------------
+      # Terraform Apply (main branch only)
+      # -------------------------------------------------------------------
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve tfplan
+
+      # -------------------------------------------------------------------
+      # Output Integration Info
+      # -------------------------------------------------------------------
+      - name: Show Integration Instructions
+        if: github.ref == 'refs/heads/main'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "=============================================="
+          echo "Bedrock Infrastructure Deployed!"
+          echo "=============================================="
+          echo ""
+          terraform output -raw chatbot_integration || true
+          echo ""
+          echo "=============================================="
+          echo "Uploaded Documents:"
+          echo "=============================================="
+          terraform output -json uploaded_documents || true

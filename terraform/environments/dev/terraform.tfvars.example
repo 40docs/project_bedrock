@@ -1,0 +1,89 @@
+# =============================================================================
+# Terraform Variables - Example Configuration
+# =============================================================================
+# Copy this file to terraform.tfvars and customize for your environment.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Project Configuration
+# -----------------------------------------------------------------------------
+# These should match your project_kubernetes settings
+
+project_name = "40docs"
+environment  = "dev"
+
+# -----------------------------------------------------------------------------
+# AWS Configuration
+# -----------------------------------------------------------------------------
+
+region = "ca-central-1"
+
+# -----------------------------------------------------------------------------
+# EKS Integration
+# -----------------------------------------------------------------------------
+# Leave empty to use default naming: {project_name}-{environment}
+
+# eks_cluster_name = "40docs-dev"
+
+# -----------------------------------------------------------------------------
+# Chatbot Application
+# -----------------------------------------------------------------------------
+
+chatbot_namespace       = "chatbot"
+chatbot_service_account = "chatbot-backend"
+
+# -----------------------------------------------------------------------------
+# Bedrock Models
+# -----------------------------------------------------------------------------
+# List of models the chatbot is allowed to invoke
+
+bedrock_models = [
+  "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "anthropic.claude-3-5-haiku-20241022-v1:0"
+]
+
+# -----------------------------------------------------------------------------
+# Guardrails
+# -----------------------------------------------------------------------------
+
+enable_bedrock_guardrails = true
+
+# Action for PII: "BLOCK" or "ANONYMIZE"
+guardrail_pii_action = "ANONYMIZE"
+
+# Optional: Block specific topics
+# guardrail_blocked_topics = ["Financial Advice", "Medical Advice"]
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+
+enable_model_logging = true
+log_retention_days   = 30
+
+# -----------------------------------------------------------------------------
+# Cost Control
+# -----------------------------------------------------------------------------
+# Only enable for high-traffic production workloads
+
+enable_provisioned_throughput = false
+# provisioned_model_units = 1
+
+# -----------------------------------------------------------------------------
+# Knowledge Base (RAG)
+# -----------------------------------------------------------------------------
+# Enable RAG capabilities for grounding responses in your documents
+
+enable_knowledge_base = true
+
+# Embedding model (must have model access enabled)
+kb_embedding_model      = "amazon.titan-embed-text-v2:0"
+kb_embedding_dimensions = 1024
+
+# Document chunking configuration
+kb_chunking_strategy        = "FIXED_SIZE"
+kb_chunk_max_tokens         = 512
+kb_chunk_overlap_percentage = 20
+
+# Vector index name in OpenSearch
+kb_vector_index_name = "bedrock-knowledge-base-index"

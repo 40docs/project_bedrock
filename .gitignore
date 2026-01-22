@@ -1,0 +1,39 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfplan
+tfplan
+.terraformrc
+terraform.rc
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (never commit these)
+*.pem
+*.key
+.env
+.env.*
+secrets/
+
+# Bootstrap (contains AWS account ID)
+bootstrap/.hydration-config
