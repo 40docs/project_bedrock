@@ -26,6 +26,8 @@ jobs:
     env:
       # EKS cluster name (from project_kubernetes)
       TF_VAR_eks_cluster_name: ${{ secrets.TF_VAR_eks_cluster_name }}
+      # State bucket for remote state reference to project_kubernetes
+      TF_VAR_tf_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
 
     steps:
       # -------------------------------------------------------------------

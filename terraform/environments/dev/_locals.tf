@@ -2,6 +2,13 @@
 # Local Values
 # =============================================================================
 # Computed values and data sources for the Bedrock module.
+#
+# REMOTE STATE:
+# -------------
+# This module reads outputs from project_kubernetes via terraform_remote_state.
+# This decouples the two projects - project_bedrock can still run terraform
+# destroy even if the EKS cluster has already been deleted, because the state
+# file retains the last known output values.
 # =============================================================================
 
 locals {
@@ -13,11 +20,18 @@ locals {
   # Resource naming prefix for Bedrock resources
   bedrock_prefix = "${var.project_name}-${var.environment}-bedrock"
 
+  # State key for project_kubernetes
+  kubernetes_state_key = var.kubernetes_state_key != "" ? var.kubernetes_state_key : "eks/${var.environment}/terraform.tfstate"
+
   # ---------------------------------------------------------------------------
-  # OIDC Provider
+  # Values from project_kubernetes Remote State
   # ---------------------------------------------------------------------------
-  # Extract OIDC issuer URL without https:// prefix (needed for trust policy)
-  oidc_issuer = replace(data.aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")
+  eks_cluster_endpoint = data.terraform_remote_state.kubernetes.outputs.cluster_endpoint
+  eks_cluster_ca       = data.terraform_remote_state.kubernetes.outputs.cluster_certificate_authority
+  eks_cluster_name     = data.terraform_remote_state.kubernetes.outputs.cluster_name
+  oidc_provider_arn    = data.terraform_remote_state.kubernetes.outputs.oidc_provider_arn
+  oidc_issuer          = data.terraform_remote_state.kubernetes.outputs.oidc_provider_url
+  vpc_id               = data.terraform_remote_state.kubernetes.outputs.vpc_id
 
   # ---------------------------------------------------------------------------
   # Bedrock Model ARNs
@@ -27,13 +41,6 @@ locals {
     for model_id in var.bedrock_models :
     "arn:aws:bedrock:${var.region}::foundation-model/${model_id}"
   ]
-
-  # ---------------------------------------------------------------------------
-  # VPC Information (from EKS cluster)
-  # ---------------------------------------------------------------------------
-  # Used for VPC endpoint restrictions - ensures Bedrock calls only come
-  # from within the VPC via VPC endpoints, not from the public internet.
-  vpc_id = data.aws_eks_cluster.main.vpc_config[0].vpc_id
 
   # ---------------------------------------------------------------------------
   # Common Tags
@@ -53,12 +60,20 @@ locals {
 # Get current AWS account ID
 data "aws_caller_identity" "current" {}
 
-# Reference existing EKS cluster from project_kubernetes
-data "aws_eks_cluster" "main" {
-  name = local.cluster_name
-}
+# -----------------------------------------------------------------------------
+# Remote State - project_kubernetes
+# -----------------------------------------------------------------------------
+# Reads outputs from the project_kubernetes Terraform state.
+# This provides EKS cluster details, VPC ID, and OIDC provider info
+# without requiring the EKS cluster to exist at plan/destroy time.
+# -----------------------------------------------------------------------------
 
-# Get OIDC provider for IRSA
-data "aws_iam_openid_connect_provider" "eks" {
-  url = data.aws_eks_cluster.main.identity[0].oidc[0].issuer
+data "terraform_remote_state" "kubernetes" {
+  backend = "s3"
+
+  config = {
+    bucket = var.tf_state_bucket
+    key    = local.kubernetes_state_key
+    region = var.region
+  }
 }

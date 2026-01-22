@@ -32,13 +32,24 @@ variable "region" {
 }
 
 # -----------------------------------------------------------------------------
-# EKS Integration
+# EKS Integration (via Remote State)
 # -----------------------------------------------------------------------------
 
 variable "eks_cluster_name" {
   description = "Name of the existing EKS cluster from project_kubernetes"
   type        = string
   default     = "" # If empty, defaults to {project_name}-{environment}
+}
+
+variable "tf_state_bucket" {
+  description = "S3 bucket containing Terraform state (shared with project_kubernetes)"
+  type        = string
+}
+
+variable "kubernetes_state_key" {
+  description = "S3 key for the project_kubernetes Terraform state file"
+  type        = string
+  default     = "" # If empty, defaults to eks/{environment}/terraform.tfstate
 }
 
 # -----------------------------------------------------------------------------

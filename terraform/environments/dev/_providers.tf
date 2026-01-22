@@ -7,9 +7,9 @@
 #
 # INTEGRATION:
 # ------------
-# This module uses data sources to reference the existing EKS cluster from
-# project_kubernetes. It creates IRSA roles that pods can assume to access
-# Bedrock APIs.
+# This module uses terraform_remote_state to read outputs from the
+# project_kubernetes state file. This decouples the projects - bedrock
+# can destroy cleanly even if the EKS cluster is already gone.
 # =============================================================================
 
 terraform {
@@ -51,17 +51,17 @@ provider "aws" {
 # -----------------------------------------------------------------------------
 # Kubernetes Provider
 # -----------------------------------------------------------------------------
-# Connects to the existing EKS cluster from project_kubernetes.
+# Connects to the EKS cluster using values from project_kubernetes remote state.
 # Used to create ServiceAccount with IRSA annotation.
 # -----------------------------------------------------------------------------
 
 provider "kubernetes" {
-  host                   = data.aws_eks_cluster.main.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.main.certificate_authority[0].data)
+  host                   = local.eks_cluster_endpoint
+  cluster_ca_certificate = base64decode(local.eks_cluster_ca)
 
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", data.aws_eks_cluster.main.name, "--region", var.region]
+    args        = ["eks", "get-token", "--cluster-name", local.eks_cluster_name, "--region", var.region]
   }
 }
