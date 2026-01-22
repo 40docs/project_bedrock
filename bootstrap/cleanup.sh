@@ -188,6 +188,11 @@ else
     exit 1
   elif [[ $WATCH_EXIT_CODE -eq 0 ]]; then
     log_info "Terraform Destroy completed successfully"
+
+    # Remove state file from shared S3 bucket (prevents blocking project_kubernetes cleanup)
+    STATE_KEY="bedrock/${ENVIRONMENT}/terraform.tfstate"
+    log_info "Removing state file: s3://${STATE_BUCKET}/${STATE_KEY}"
+    aws s3 rm "s3://${STATE_BUCKET}/${STATE_KEY}" 2>/dev/null || true
   else
     log_error "Terraform Destroy workflow failed!"
     log_error "Check logs: gh run view ${RUN_ID} --repo ${GITHUB_ORG}/${GITHUB_REPO} --log"
