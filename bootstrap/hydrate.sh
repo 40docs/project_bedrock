@@ -438,7 +438,8 @@ POLICY_DOCUMENT=$(cat <<EOF
         "iam:GetPolicy",
         "iam:GetPolicyVersion",
         "iam:ListPolicyVersions",
-        "iam:GetOpenIDConnectProvider"
+        "iam:GetOpenIDConnectProvider",
+        "iam:CreateServiceLinkedRole"
       ],
       "Resource": "*"
     },
@@ -451,6 +452,7 @@ POLICY_DOCUMENT=$(cat <<EOF
         "s3:PutBucketVersioning",
         "s3:PutBucketEncryption",
         "s3:PutBucketPublicAccessBlock",
+        "s3:GetBucketPublicAccessBlock",
         "s3:PutBucketPolicy",
         "s3:GetBucketPolicy",
         "s3:DeleteBucketPolicy",
@@ -463,7 +465,11 @@ POLICY_DOCUMENT=$(cat <<EOF
         "s3:DeleteObject",
         "s3:ListBucket",
         "s3:GetBucketLocation",
-        "s3:GetBucketVersioning"
+        "s3:GetBucketVersioning",
+        "s3:GetBucketAcl",
+        "s3:GetEncryptionConfiguration",
+        "s3:ListBucketVersions",
+        "s3:DeleteObjectVersion"
       ],
       "Resource": [
         "arn:aws:s3:::${PROJECT_NAME}-${ENVIRONMENT}-bedrock-*",

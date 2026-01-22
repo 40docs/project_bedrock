@@ -243,6 +243,8 @@ resource "aws_iam_role_policy" "bedrock_knowledge_base" {
 # -----------------------------------------------------------------------------
 
 resource "kubernetes_service_account" "chatbot_backend" {
+  count = var.create_service_account ? 1 : 0
+
   metadata {
     name      = var.chatbot_service_account
     namespace = var.chatbot_namespace

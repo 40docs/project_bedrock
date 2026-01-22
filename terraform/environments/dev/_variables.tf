@@ -89,6 +89,16 @@ variable "chatbot_service_account" {
   default     = "chatbot-backend"
 }
 
+variable "create_service_account" {
+  description = <<-EOT
+    Create the Kubernetes ServiceAccount via Terraform.
+    Set to false when running from CI/CD that lacks EKS auth.
+    The ServiceAccount can be created via kubectl or GitOps instead.
+  EOT
+  type        = bool
+  default     = false
+}
+
 # -----------------------------------------------------------------------------
 # Bedrock Configuration
 # -----------------------------------------------------------------------------
