@@ -20,6 +20,10 @@ locals {
   # Resource naming prefix for Bedrock resources
   bedrock_prefix = "${var.project_name}-${var.environment}-bedrock"
 
+  # OpenSearch Serverless requires names starting with a lowercase letter.
+  # Since project_name may start with a number, prefix with "bedrock-".
+  opensearch_prefix = "bedrock-${var.project_name}-${var.environment}"
+
   # State key for project_kubernetes
   kubernetes_state_key = var.kubernetes_state_key != "" ? var.kubernetes_state_key : "eks/${var.environment}/terraform.tfstate"
 

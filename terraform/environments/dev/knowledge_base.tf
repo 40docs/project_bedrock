@@ -93,13 +93,13 @@ resource "aws_s3_object" "kb_folders" {
 resource "aws_opensearchserverless_security_policy" "kb_encryption" {
   count = var.enable_knowledge_base ? 1 : 0
 
-  name = "${local.bedrock_prefix}-kb-enc"
+  name = "${local.opensearch_prefix}-kb-enc"
   type = "encryption"
 
   policy = jsonencode({
     Rules = [{
       ResourceType = "collection"
-      Resource     = ["collection/${local.bedrock_prefix}-kb"]
+      Resource     = ["collection/${local.opensearch_prefix}-kb"]
     }]
     AWSOwnedKey = true
   })
@@ -108,16 +108,16 @@ resource "aws_opensearchserverless_security_policy" "kb_encryption" {
 resource "aws_opensearchserverless_security_policy" "kb_network" {
   count = var.enable_knowledge_base ? 1 : 0
 
-  name = "${local.bedrock_prefix}-kb-net"
+  name = "${local.opensearch_prefix}-kb-net"
   type = "network"
 
   policy = jsonencode([{
     Rules = [{
       ResourceType = "collection"
-      Resource     = ["collection/${local.bedrock_prefix}-kb"]
+      Resource     = ["collection/${local.opensearch_prefix}-kb"]
     }, {
       ResourceType = "dashboard"
-      Resource     = ["collection/${local.bedrock_prefix}-kb"]
+      Resource     = ["collection/${local.opensearch_prefix}-kb"]
     }]
     AllowFromPublic = true
   }])
@@ -126,14 +126,14 @@ resource "aws_opensearchserverless_security_policy" "kb_network" {
 resource "aws_opensearchserverless_access_policy" "kb_access" {
   count = var.enable_knowledge_base ? 1 : 0
 
-  name = "${local.bedrock_prefix}-kb-access"
+  name = "${local.opensearch_prefix}-kb-access"
   type = "data"
 
   policy = jsonencode([{
     Rules = [
       {
         ResourceType = "index"
-        Resource     = ["index/${local.bedrock_prefix}-kb/*"]
+        Resource     = ["index/${local.opensearch_prefix}-kb/*"]
         Permission = [
           "aoss:CreateIndex",
           "aoss:DeleteIndex",
@@ -145,7 +145,7 @@ resource "aws_opensearchserverless_access_policy" "kb_access" {
       },
       {
         ResourceType = "collection"
-        Resource     = ["collection/${local.bedrock_prefix}-kb"]
+        Resource     = ["collection/${local.opensearch_prefix}-kb"]
         Permission = [
           "aoss:CreateCollectionItems",
           "aoss:DeleteCollectionItems",
@@ -164,7 +164,7 @@ resource "aws_opensearchserverless_access_policy" "kb_access" {
 resource "aws_opensearchserverless_collection" "knowledge_base" {
   count = var.enable_knowledge_base ? 1 : 0
 
-  name = "${local.bedrock_prefix}-kb"
+  name = "${local.opensearch_prefix}-kb"
   type = "VECTORSEARCH"
 
   depends_on = [
