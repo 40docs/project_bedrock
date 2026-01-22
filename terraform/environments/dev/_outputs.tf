@@ -24,13 +24,13 @@ output "bedrock_irsa_role_name" {
 # -----------------------------------------------------------------------------
 
 output "service_account_name" {
-  description = "Kubernetes ServiceAccount name with IRSA annotation"
-  value       = kubernetes_service_account.chatbot_backend.metadata[0].name
+  description = "Kubernetes ServiceAccount name for IRSA annotation"
+  value       = var.chatbot_service_account
 }
 
 output "service_account_namespace" {
   description = "Kubernetes namespace for the ServiceAccount"
-  value       = kubernetes_service_account.chatbot_backend.metadata[0].namespace
+  value       = var.chatbot_namespace
 }
 
 # -----------------------------------------------------------------------------
