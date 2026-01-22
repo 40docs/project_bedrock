@@ -644,7 +644,7 @@ if [[ "${TRIGGER_TERRAFORM,,}" == "y" || "${TRIGGER_TERRAFORM,,}" == "yes" ]]; t
   log_step "Step 8: Triggering Terraform Apply via GitHub Actions..."
 
   # Check if workflow exists
-  if ! gh workflow list --repo "${GITHUB_ORG}/${GITHUB_REPO}" | grep -q "terraform"; then
+  if ! gh workflow list --repo "${GITHUB_ORG}/${GITHUB_REPO}" | grep -qi "terraform"; then
     log_error "No terraform workflow found in ${GITHUB_ORG}/${GITHUB_REPO}"
     log_error "Please push the .github/workflows/terraform.yml file first"
     exit 1
