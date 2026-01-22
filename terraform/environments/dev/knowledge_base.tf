@@ -33,7 +33,8 @@
 resource "aws_s3_bucket" "knowledge_base" {
   count = var.enable_knowledge_base ? 1 : 0
 
-  bucket = "${local.bedrock_prefix}-kb-${data.aws_caller_identity.current.account_id}"
+  bucket        = "${local.bedrock_prefix}-kb-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true # Allow terraform destroy to delete bucket with versioned objects
 
   tags = merge(local.common_tags, {
     Name = "${local.bedrock_prefix}-knowledge-base"
