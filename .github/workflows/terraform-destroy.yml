@@ -1,0 +1,98 @@
+# =============================================================================
+# Terraform Destroy Pipeline - Bedrock
+# =============================================================================
+# Manually triggered workflow to destroy all Bedrock infrastructure.
+# Requires explicit confirmation to prevent accidental destruction.
+#
+# WARNING: This will permanently delete:
+#   - Bedrock Knowledge Base
+#   - OpenSearch Serverless collection
+#   - S3 bucket with documents
+#   - IAM roles (IRSA)
+#   - Guardrails
+#   - CloudWatch log groups
+# =============================================================================
+
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "destroy" to confirm'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: '1.5'
+  TF_WORKING_DIR: 'terraform/environments/dev'
+
+jobs:
+  validate:
+    name: Validate Confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        if: inputs.confirm != 'destroy'
+        run: |
+          echo "::error::Confirmation failed. You must type 'destroy' to confirm."
+          exit 1
+
+  destroy:
+    name: Terraform Destroy
+    needs: validate
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_eks_cluster_name: ${{ secrets.TF_VAR_eks_cluster_name }}
+      TF_VAR_tf_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ secrets.TF_STATE_KEY }}" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Destroy Plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -destroy -out=destroy.tfplan
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -destroy -auto-approve destroy.tfplan
+
+      - name: Cleanup Summary
+        run: |
+          echo "## Destroy Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All Bedrock infrastructure has been destroyed:" >> $GITHUB_STEP_SUMMARY
+          echo "- Knowledge Base & Data Source" >> $GITHUB_STEP_SUMMARY
+          echo "- OpenSearch Serverless collection" >> $GITHUB_STEP_SUMMARY
+          echo "- S3 document bucket" >> $GITHUB_STEP_SUMMARY
+          echo "- IRSA role & policies" >> $GITHUB_STEP_SUMMARY
+          echo "- Guardrails" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** Bootstrap resources (state bucket, DynamoDB, GitHub Actions IAM role) are NOT deleted." >> $GITHUB_STEP_SUMMARY
+          echo "To remove those, run: \`./bootstrap/cleanup.sh\`" >> $GITHUB_STEP_SUMMARY

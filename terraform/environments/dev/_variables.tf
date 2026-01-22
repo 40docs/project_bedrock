@@ -58,19 +58,20 @@ variable "kubernetes_state_key" {
 
 variable "enable_vpc_restriction" {
   description = <<-EOT
-    Restrict Bedrock API calls to only come through VPC endpoints.
+    Add aws:SourceVpc IAM condition to InvokeModel and ApplyGuardrail policies.
 
-    When enabled, adds an IAM condition (aws:SourceVpc) that denies any
-    Bedrock calls that don't originate from within the EKS VPC.
+    WARNING: This is INCOMPATIBLE with RetrieveAndGenerate (Knowledge Base RAG)
+    because Bedrock's internal service-to-service InvokeModel calls don't
+    traverse VPC endpoints, causing the condition to fail.
 
-    IMPORTANT: Requires VPC endpoints for Bedrock to be created in
-    project_kubernetes first (bedrock-runtime, bedrock-agent-runtime).
+    Only enable if the chatbot makes DIRECT InvokeModel calls without using
+    the Knowledge Base API.
 
-    This is the strongest security posture - even with valid credentials,
-    calls from outside the VPC will be denied.
+    Network-level security is always enforced by VPC endpoints (private DNS)
+    and security groups regardless of this setting.
   EOT
   type        = bool
-  default     = true
+  default     = false
 }
 
 # -----------------------------------------------------------------------------
@@ -107,21 +108,20 @@ variable "bedrock_models" {
   description = <<-EOT
     List of Bedrock model IDs to allow access to.
 
-    Common model IDs:
-    - anthropic.claude-3-5-sonnet-20241022-v2:0  (Claude 3.5 Sonnet v2)
-    - anthropic.claude-3-5-haiku-20241022-v1:0   (Claude 3.5 Haiku)
-    - anthropic.claude-3-opus-20240229-v1:0      (Claude 3 Opus)
+    Common model IDs (check region availability):
+    - anthropic.claude-3-haiku-20240307-v1:0     (Claude 3 Haiku - fast/cheap)
     - anthropic.claude-3-sonnet-20240229-v1:0    (Claude 3 Sonnet)
-    - anthropic.claude-3-haiku-20240307-v1:0     (Claude 3 Haiku)
+    - anthropic.claude-sonnet-4-5-20250929-v1:0  (Claude Sonnet 4.5 - requires inference profile)
+    - anthropic.claude-haiku-4-5-20251001-v1:0   (Claude Haiku 4.5 - requires inference profile)
     - amazon.titan-text-express-v1              (Amazon Titan Text Express)
-    - amazon.titan-embed-text-v1                (Amazon Titan Embeddings)
 
+    Note: Claude 4.5+ models require inference profiles for on-demand use.
     Use "*" to allow all models (not recommended for production).
   EOT
   type        = list(string)
   default = [
-    "anthropic.claude-3-5-sonnet-20241022-v2:0",
-    "anthropic.claude-3-5-haiku-20241022-v1:0"
+    "anthropic.claude-3-haiku-20240307-v1:0",
+    "anthropic.claude-3-sonnet-20240229-v1:0"
   ]
 }
 

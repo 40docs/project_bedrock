@@ -12,11 +12,13 @@
 #   5. AWS SDK uses token to call sts:AssumeRoleWithWebIdentity
 #   6. Pod gets temporary credentials for the IAM role
 #
-# SECURITY (VPC Restriction):
-# ---------------------------
-# When enable_vpc_restriction=true, all Bedrock API calls MUST originate
-# from within the EKS VPC via VPC endpoints. Calls from outside the VPC
-# are denied even with valid credentials.
+# SECURITY:
+# ---------
+# - IRSA: Only the specific pod/namespace can assume this role
+# - VPC Endpoints: Private DNS ensures Bedrock traffic stays internal
+# - Security Groups: Only VPC CIDR can reach the endpoints
+# - enable_vpc_restriction: Optional aws:SourceVpc condition (incompatible
+#   with RetrieveAndGenerate API; only for direct InvokeModel calls)
 #
 # INTEGRATION WITH CHATBOT:
 # -------------------------
@@ -32,7 +34,18 @@
 #
 # =============================================================================
 
-# Local for VPC condition - reused across all policies
+# VPC condition for direct InvokeModel calls (NOT for RetrieveAndGenerate).
+#
+# IMPORTANT: aws:SourceVpc is incompatible with the RetrieveAndGenerate API
+# because Bedrock makes internal service-to-service InvokeModel calls that
+# don't traverse the caller's VPC endpoints.
+#
+# For RAG-based chatbots (the primary use case), this should remain DISABLED.
+# Security is enforced via: IRSA namespace scoping + VPC endpoints with
+# private DNS + security groups on the endpoints.
+#
+# Only enable this if the chatbot makes DIRECT InvokeModel calls (not via
+# the Knowledge Base RetrieveAndGenerate API).
 locals {
   vpc_condition = var.enable_vpc_restriction ? {
     StringEquals = {
@@ -179,33 +192,10 @@ resource "aws_iam_role_policy" "bedrock_knowledge_base" {
   name = "bedrock-knowledge-base"
   role = aws_iam_role.bedrock_invoke.id
 
-  policy = var.enable_vpc_restriction ? jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "RetrieveFromKnowledgeBase"
-        Effect = "Allow"
-        Action = [
-          "bedrock:Retrieve",
-          "bedrock:RetrieveAndGenerate"
-        ]
-        Resource  = aws_bedrockagent_knowledge_base.main[0].arn
-        Condition = local.vpc_condition
-      },
-      {
-        Sid    = "InvokeModelForRAG"
-        Effect = "Allow"
-        Action = [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream"
-        ]
-        Resource = [
-          "arn:aws:bedrock:${var.region}::foundation-model/${var.kb_embedding_model}"
-        ]
-        Condition = local.vpc_condition
-      }
-    ]
-  }) : jsonencode({
+  # NOTE: No VPC condition here. The bedrock-agent-runtime service does not
+  # populate aws:SourceVpc/aws:SourceVpce condition keys. Network-level
+  # restriction is enforced by VPC endpoints with private DNS + security groups.
+  policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
