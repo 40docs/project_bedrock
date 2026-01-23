@@ -35,7 +35,6 @@ locals {
   eks_cluster_name     = data.terraform_remote_state.kubernetes.outputs.cluster_name
   oidc_provider_arn    = data.terraform_remote_state.kubernetes.outputs.oidc_provider_arn
   oidc_issuer          = data.terraform_remote_state.kubernetes.outputs.oidc_provider_url
-  vpc_id               = data.terraform_remote_state.kubernetes.outputs.vpc_id
 
   # ---------------------------------------------------------------------------
   # Bedrock Model ARNs

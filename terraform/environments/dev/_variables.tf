@@ -53,28 +53,6 @@ variable "kubernetes_state_key" {
 }
 
 # -----------------------------------------------------------------------------
-# Security Configuration
-# -----------------------------------------------------------------------------
-
-variable "enable_vpc_restriction" {
-  description = <<-EOT
-    Add aws:SourceVpc IAM condition to InvokeModel and ApplyGuardrail policies.
-
-    WARNING: This is INCOMPATIBLE with RetrieveAndGenerate (Knowledge Base RAG)
-    because Bedrock's internal service-to-service InvokeModel calls don't
-    traverse VPC endpoints, causing the condition to fail.
-
-    Only enable if the chatbot makes DIRECT InvokeModel calls without using
-    the Knowledge Base API.
-
-    Network-level security is always enforced by VPC endpoints (private DNS)
-    and security groups regardless of this setting.
-  EOT
-  type        = bool
-  default     = false
-}
-
-# -----------------------------------------------------------------------------
 # Chatbot Application Configuration
 # -----------------------------------------------------------------------------
 

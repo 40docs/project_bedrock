@@ -357,7 +357,6 @@ Claude 3 Haiku is the recommended model for this project — it's the only Claud
 | `chatbot_namespace` | K8s namespace for chatbot | `chatbot` |
 | `chatbot_service_account` | K8s ServiceAccount name | `chatbot-backend` |
 | `bedrock_models` | List of allowed model IDs | Claude 3 Haiku |
-| `enable_vpc_restriction` | Restrict Bedrock to VPC-only access | `false` |
 | `enable_bedrock_guardrails` | Enable content guardrails | `true` |
 | `guardrail_pii_action` | PII handling (BLOCK/ANONYMIZE) | `ANONYMIZE` |
 | `enable_model_logging` | Enable CloudWatch logging | `true` |
@@ -441,12 +440,9 @@ Chatbot Pod → VPC Endpoint → AWS PrivateLink → Bedrock
 - `bedrock-runtime` VPC endpoint for model invocation
 - `bedrock-agent-runtime` VPC endpoint for Knowledge Base queries
 
-**IAM VPC Restriction** (disabled by default):
-```hcl
-enable_vpc_restriction = false  # Default - incompatible with RAG
-```
+**IAM CalledVia Restriction**:
 
-When enabled, IAM policies include an `aws:SourceVpc` condition that denies Bedrock calls from outside the VPC. However, this is **incompatible with RetrieveAndGenerate** (Knowledge Base RAG) because Bedrock's internal service-to-service InvokeModel calls don't traverse VPC endpoints.
+InvokeModel is restricted with an `aws:CalledVia` condition so it can ONLY be called as part of a RetrieveAndGenerate (RAG) flow — direct InvokeModel calls are blocked. Even if IRSA credentials are leaked, the attacker can only query the Knowledge Base, not use Claude for arbitrary prompts.
 
 ### IRSA (IAM Roles for Service Accounts)
 
@@ -471,7 +467,7 @@ When enabled, IAM policies include an `aws:SourceVpc` condition that denies Bedr
 | Layer | Protection |
 |-------|------------|
 | VPC Endpoints | Private network path, no public internet |
-| VPC Restriction | IAM condition blocks external calls (incompatible with RAG) |
+| CalledVia | InvokeModel only allowed via RAG, not directly |
 | IRSA | No stored credentials, OIDC token exchange |
 | Guardrails | Content/PII filtering, prompt attack defense |
 | Encryption | S3 + OpenSearch encrypted at rest |
