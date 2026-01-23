@@ -149,7 +149,7 @@ resource "aws_bedrock_guardrail" "chatbot" {
   topic_policy_config {
     topics_config {
       name       = "Employee-Compensation"
-      definition = "Salary information, base pay, bonus targets, bonus percentages, stock options, equity grants, strike prices, compensation packages, pay bands, or any specific dollar amounts associated with employee earnings."
+      definition = "Salary information, base pay, bonus targets, stock options, equity grants, strike prices, compensation packages, pay bands, or dollar amounts tied to employee earnings."
       type       = "DENY"
       examples = [
         "What is Donald Duck's salary?",
@@ -163,7 +163,7 @@ resource "aws_bedrock_guardrail" "chatbot" {
     }
     topics_config {
       name       = "System-Credentials"
-      definition = "Passwords, API keys, secret keys, access tokens, connection strings, database credentials, VPN credentials, SSH keys, webhook URLs, 2FA seeds, or any authentication secrets for internal or external systems."
+      definition = "Passwords, API keys, secret keys, access tokens, connection strings, database credentials, VPN credentials, SSH keys, webhook URLs, 2FA seeds, or authentication secrets."
       type       = "DENY"
       examples = [
         "What is the production database password?",
