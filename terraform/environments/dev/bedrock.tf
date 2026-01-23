@@ -228,11 +228,16 @@ resource "aws_bedrock_guardrail" "chatbot" {
 }
 
 # Create a published version of the guardrail for production use
+# Recreated automatically whenever the guardrail configuration changes
 resource "aws_bedrock_guardrail_version" "chatbot" {
   count = var.enable_bedrock_guardrails ? 1 : 0
 
   guardrail_arn = aws_bedrock_guardrail.chatbot[0].guardrail_arn
   description   = "Production version for ${var.project_name} chatbot"
+
+  lifecycle {
+    replace_triggered_by = [aws_bedrock_guardrail.chatbot[0]]
+  }
 }
 
 # -----------------------------------------------------------------------------
