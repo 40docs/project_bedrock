@@ -44,7 +44,7 @@ resource "aws_bedrock_guardrail" "chatbot" {
   count = var.enable_bedrock_guardrails ? 1 : 0
 
   name                      = "${local.bedrock_prefix}-guardrail"
-  description               = "Content safety guardrail for ${var.project_name} chatbot"
+  description               = "Content safety guardrail for ${var.project_name} chatbot with topic blocking"
   blocked_input_messaging   = "I apologize, but I cannot process that request as it may contain inappropriate content."
   blocked_outputs_messaging = "I apologize, but I cannot provide that response as it may contain inappropriate content."
 
