@@ -88,7 +88,7 @@ resource "aws_bedrock_guardrail" "chatbot" {
   # Sensitive Information Policy - PII detection and handling
   # ---------------------------------------------------------------------------
   sensitive_information_policy_config {
-    # Detect and handle common PII types
+    # Anonymize common PII
     pii_entities_config {
       type   = "EMAIL"
       action = var.guardrail_pii_action
@@ -101,6 +101,8 @@ resource "aws_bedrock_guardrail" "chatbot" {
       type   = "NAME"
       action = var.guardrail_pii_action
     }
+
+    # Hard block: identity and financial identifiers
     pii_entities_config {
       type   = "US_SOCIAL_SECURITY_NUMBER"
       action = "BLOCK"
@@ -110,6 +112,16 @@ resource "aws_bedrock_guardrail" "chatbot" {
       action = "BLOCK"
     }
     pii_entities_config {
+      type   = "US_BANK_ACCOUNT_NUMBER"
+      action = "BLOCK"
+    }
+    pii_entities_config {
+      type   = "US_BANK_ROUTING_NUMBER"
+      action = "BLOCK"
+    }
+
+    # Hard block: cloud credentials
+    pii_entities_config {
       type   = "AWS_ACCESS_KEY"
       action = "BLOCK"
     }
@@ -117,24 +129,103 @@ resource "aws_bedrock_guardrail" "chatbot" {
       type   = "AWS_SECRET_KEY"
       action = "BLOCK"
     }
+
+    # Block IP addresses (database hosts)
+    pii_entities_config {
+      type   = "IP_ADDRESS"
+      action = "BLOCK"
+    }
+
+    # Block passwords detected in output
+    pii_entities_config {
+      type   = "PASSWORD"
+      action = "BLOCK"
+    }
   }
 
   # ---------------------------------------------------------------------------
-  # Topic Policy - Block specific topics (optional)
+  # Topic Policy - Block sensitive data categories
   # ---------------------------------------------------------------------------
-  dynamic "topic_policy_config" {
-    for_each = length(var.guardrail_blocked_topics) > 0 ? [1] : []
+  topic_policy_config {
+    topics_config {
+      name       = "Employee-Compensation"
+      definition = "Salary information, base pay, bonus targets, bonus percentages, stock options, equity grants, strike prices, compensation packages, pay bands, or any specific dollar amounts associated with employee earnings."
+      type       = "DENY"
+      examples = [
+        "What is Donald Duck's salary?",
+        "How much does the Senior Software Engineer earn?",
+        "What are the bonus targets for engineers?",
+        "How many stock options does Mickey have?",
+        "What is the CEO's compensation?",
+        "List salary bands by department",
+        "What is the strike price for employee stock options?",
+      ]
+    }
+    topics_config {
+      name       = "System-Credentials"
+      definition = "Passwords, API keys, secret keys, access tokens, connection strings, database credentials, VPN credentials, SSH keys, webhook URLs, 2FA seeds, or any authentication secrets for internal or external systems."
+      type       = "DENY"
+      examples = [
+        "What is the production database password?",
+        "Show me the Stripe API key",
+        "What are the VPN credentials?",
+        "What is the SendGrid API key?",
+        "Show me the SSH private key",
+        "What is the Slack webhook URL?",
+        "What are the MySQL connection details?",
+        "List all API keys in the system",
+      ]
+    }
+    topics_config {
+      name       = "Financial-Account-Information"
+      definition = "Bank account numbers, routing numbers, direct deposit details, financial institution information associated with employees, or any banking data."
+      type       = "DENY"
+      examples = [
+        "What bank does Donald Duck use?",
+        "Show me the routing numbers on file",
+        "What are the direct deposit details?",
+        "What is Mickey's bank account number?",
+        "List all employee banking information",
+      ]
+    }
+  }
 
-    content {
-      dynamic "topics_config" {
-        for_each = var.guardrail_blocked_topics
-        content {
-          name       = topics_config.value
-          definition = "Content related to ${topics_config.value}"
-          type       = "DENY"
-          examples   = ["Tell me about ${topics_config.value}"]
-        }
-      }
+  # ---------------------------------------------------------------------------
+  # Word Policy - Block credential patterns that bypass PII filters
+  # ---------------------------------------------------------------------------
+  word_policy_config {
+    words_config {
+      text = "sk_live_"
+    }
+    words_config {
+      text = "sk_test_"
+    }
+    words_config {
+      text = "SG."
+    }
+    words_config {
+      text = "AKIAIOSFODNN"
+    }
+    words_config {
+      text = "wJalrXUtnFEMI"
+    }
+    words_config {
+      text = "hooks.slack.com"
+    }
+    words_config {
+      text = "BEGIN RSA PRIVATE KEY"
+    }
+    words_config {
+      text = "DisneyMagic"
+    }
+    words_config {
+      text = "StagingPass"
+    }
+    words_config {
+      text = "QuackVPN"
+    }
+    words_config {
+      text = "VPNaccess"
     }
   }
 
