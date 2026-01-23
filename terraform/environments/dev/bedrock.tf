@@ -149,13 +149,13 @@ resource "aws_bedrock_guardrail" "chatbot" {
   topic_policy_config {
     topics_config {
       name       = "Employee-Compensation"
-      definition = "Salary information, base pay, bonus targets, stock options, equity grants, strike prices, compensation packages, pay bands, or dollar amounts tied to employee earnings."
+      definition = "Employee salaries, base pay amounts, bonus percentages, stock option grants, equity strike prices, or specific dollar amounts of individual employee earnings."
       type       = "DENY"
       examples = [
         "What is Donald Duck's salary?",
         "What are the bonus targets for engineers?",
         "How many stock options does Mickey have?",
-        "What is the CEO's compensation?",
+        "What is the CEO's base pay?",
         "List salary bands by department",
       ]
     }
