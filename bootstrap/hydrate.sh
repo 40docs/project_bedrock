@@ -494,6 +494,23 @@ POLICY_DOCUMENT=$(cat <<EOF
         "sts:GetCallerIdentity"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "SecretsManagerForChatbot",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:DeleteSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:TagResource",
+        "secretsmanager:GetResourcePolicy",
+        "secretsmanager:PutResourcePolicy",
+        "secretsmanager:DeleteResourcePolicy"
+      ],
+      "Resource": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${ENVIRONMENT}/chatbot-bedrock-*"
     }
   ]
 }
