@@ -43,7 +43,7 @@ This repository provides Terraform configuration to:
 │                              ▼                                              │
 │  ┌────────────────────┐  ┌─────────────────────────────────────────────┐   │
 │  │  Foundation Models │  │  Guardrail                                  │   │
-│  │  - Claude 3.5      │◀─│  - Content filtering                        │   │
+│  │  - Claude 3 Haiku  │◀─│  - Content filtering                        │   │
 │  │  - Titan Embed     │  │  - PII detection                            │   │
 │  └────────────────────┘  └─────────────────────────────────────────────┘   │
 │                                                                              │
@@ -95,22 +95,12 @@ terraform plan
 terraform apply
 ```
 
-### 4. Upload Documents to Knowledge Base
+### 4. Documents (Automatic)
 
-```bash
-# Get the S3 bucket name from outputs
-KB_BUCKET=$(terraform output -raw knowledge_base_s3_bucket)
+Documents in the `documents/` folder are automatically uploaded to S3 and ingested into the Knowledge Base during `terraform apply`. To update documents:
 
-# Upload your documents
-aws s3 cp ./docs/ s3://$KB_BUCKET/documents/ --recursive
-
-# Trigger ingestion
-KB_ID=$(terraform output -raw knowledge_base_id)
-DS_ID=$(terraform output -raw knowledge_base_data_source_id)
-aws bedrock-agent start-ingestion-job \
-  --knowledge-base-id $KB_ID \
-  --data-source-id $DS_ID
-```
+1. Add/modify files in the `documents/` folder
+2. Run `terraform apply` — changed files are uploaded and ingestion is triggered
 
 ### 5. Update Chatbot Backend
 
@@ -128,7 +118,7 @@ spec:
             - name: AWS_REGION
               value: "ca-central-1"
             - name: BEDROCK_MODEL_ID
-              value: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+              value: "anthropic.claude-3-haiku-20240307-v1:0"
             - name: BEDROCK_KNOWLEDGE_BASE_ID
               value: "<from terraform output>"
             - name: BEDROCK_GUARDRAIL_ID
@@ -158,12 +148,14 @@ spec:
 
 ### S3 Folder Structure
 
+Documents are uploaded to S3 with keys matching the local `documents/` folder structure:
+
 ```
 s3://your-kb-bucket/
-├── documents/
-│   ├── policies/       # Company policies
-│   ├── guides/         # User guides
-│   └── faqs/           # FAQ documents
+└── documents/
+    ├── employees/       # Employee directory
+    ├── policies/        # HR policies
+    └── confidential/    # Sensitive test data
 ```
 
 ### Python SDK Examples
@@ -265,6 +257,94 @@ aws bedrock-agent get-ingestion-job \
   --ingestion-job-id <job-id>
 ```
 
+## Manual Testing
+
+After deployment, verify both InvokeModel and RAG are working using the AWS CLI.
+
+### Get Resource IDs
+
+```bash
+cd terraform/environments/dev
+
+KB_ID=$(terraform output -raw knowledge_base_id)
+DS_ID=$(terraform output -raw knowledge_base_data_source_id)
+GUARDRAIL_ID=$(terraform output -raw guardrail_id)
+REGION="ca-central-1"
+MODEL_ID="anthropic.claude-3-haiku-20240307-v1:0"
+```
+
+### Test 1: InvokeModel (No RAG)
+
+Direct model call — the model has no knowledge of your documents:
+
+```bash
+echo '{"anthropic_version":"bedrock-2023-05-31","max_tokens":200,"messages":[{"role":"user","content":"What is the PTO policy for employees with 5 years of service?"}]}' > /tmp/body.json
+
+aws bedrock-runtime invoke-model \
+  --model-id $MODEL_ID \
+  --region $REGION \
+  --content-type application/json \
+  --accept application/json \
+  --body fileb:///tmp/body.json \
+  /tmp/response.json && jq -r '.content[0].text' /tmp/response.json
+```
+
+Expected: A generic answer about PTO policies (the model doesn't know your specific policy).
+
+### Test 2: RetrieveAndGenerate (RAG)
+
+Queries the Knowledge Base, retrieves relevant document chunks, then generates a grounded answer:
+
+```bash
+aws bedrock-agent-runtime retrieve-and-generate \
+  --region $REGION \
+  --input '{"text":"What is the PTO policy for employees with 5 years of service?"}' \
+  --retrieve-and-generate-configuration "{
+    \"type\": \"KNOWLEDGE_BASE\",
+    \"knowledgeBaseConfiguration\": {
+      \"knowledgeBaseId\": \"$KB_ID\",
+      \"modelArn\": \"arn:aws:bedrock:${REGION}::foundation-model/${MODEL_ID}\"
+    }
+  }" | jq -r '.output.text'
+```
+
+Expected: "employees with 3-5 years of service are entitled to 20 days of annual PTO" (from your actual PTO document).
+
+### Test 3: RAG + Guardrail (PII Blocking)
+
+Same as above but with guardrail applied — should block sensitive data:
+
+```bash
+aws bedrock-agent-runtime retrieve-and-generate \
+  --region $REGION \
+  --input '{"text":"What is Mickey Mouse social security number?"}' \
+  --retrieve-and-generate-configuration "{
+    \"type\": \"KNOWLEDGE_BASE\",
+    \"knowledgeBaseConfiguration\": {
+      \"knowledgeBaseId\": \"$KB_ID\",
+      \"modelArn\": \"arn:aws:bedrock:${REGION}::foundation-model/${MODEL_ID}\",
+      \"generationConfiguration\": {
+        \"guardrailConfiguration\": {
+          \"guardrailId\": \"$GUARDRAIL_ID\",
+          \"guardrailVersion\": \"DRAFT\"
+        }
+      }
+    }
+  }" | jq -r '.output.text'
+```
+
+Expected: Blocked or refused response (SSN is a hard-blocked PII type).
+
+### Model Selection
+
+| Model | ID | Notes |
+|-------|-----|-------|
+| **Claude 3 Haiku** | `anthropic.claude-3-haiku-20240307-v1:0` | Recommended. Fast, cheap, available on-demand in ca-central-1 |
+| Claude 3 Sonnet | `anthropic.claude-3-sonnet-20240229-v1:0` | Available but not needed for this use case |
+| Claude 4.5+ | `us.anthropic.claude-opus-4-5-20251101-v1:0` | Requires cross-region inference profile |
+
+Claude 3 Haiku is the recommended model for this project — it's the only Claude model available for direct on-demand invocation in ca-central-1 without inference profiles.
+
 ## Configuration
 
 ### Variables
@@ -276,8 +356,8 @@ aws bedrock-agent get-ingestion-job \
 | `region` | AWS region | `ca-central-1` |
 | `chatbot_namespace` | K8s namespace for chatbot | `chatbot` |
 | `chatbot_service_account` | K8s ServiceAccount name | `chatbot-backend` |
-| `bedrock_models` | List of allowed model IDs | Claude 3.5 Sonnet/Haiku |
-| `enable_vpc_restriction` | Restrict Bedrock to VPC-only access | `true` |
+| `bedrock_models` | List of allowed model IDs | Claude 3 Haiku |
+| `enable_vpc_restriction` | Restrict Bedrock to VPC-only access | `false` |
 | `enable_bedrock_guardrails` | Enable content guardrails | `true` |
 | `guardrail_pii_action` | PII handling (BLOCK/ANONYMIZE) | `ANONYMIZE` |
 | `enable_model_logging` | Enable CloudWatch logging | `true` |
@@ -361,12 +441,12 @@ Chatbot Pod → VPC Endpoint → AWS PrivateLink → Bedrock
 - `bedrock-runtime` VPC endpoint for model invocation
 - `bedrock-agent-runtime` VPC endpoint for Knowledge Base queries
 
-**IAM VPC Restriction** (enabled by default):
+**IAM VPC Restriction** (disabled by default):
 ```hcl
-enable_vpc_restriction = true  # Default
+enable_vpc_restriction = false  # Default - incompatible with RAG
 ```
 
-When enabled, IAM policies include an `aws:SourceVpc` condition that **denies all Bedrock calls from outside the VPC**, even with valid credentials. This protects against credential theft/misuse.
+When enabled, IAM policies include an `aws:SourceVpc` condition that denies Bedrock calls from outside the VPC. However, this is **incompatible with RetrieveAndGenerate** (Knowledge Base RAG) because Bedrock's internal service-to-service InvokeModel calls don't traverse VPC endpoints.
 
 ### IRSA (IAM Roles for Service Accounts)
 
@@ -391,7 +471,7 @@ When enabled, IAM policies include an `aws:SourceVpc` condition that **denies al
 | Layer | Protection |
 |-------|------------|
 | VPC Endpoints | Private network path, no public internet |
-| VPC Restriction | IAM condition blocks external calls |
+| VPC Restriction | IAM condition blocks external calls (incompatible with RAG) |
 | IRSA | No stored credentials, OIDC token exchange |
 | Guardrails | Content/PII filtering, prompt attack defense |
 | Encryption | S3 + OpenSearch encrypted at rest |

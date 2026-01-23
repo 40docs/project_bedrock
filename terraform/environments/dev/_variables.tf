@@ -108,20 +108,18 @@ variable "bedrock_models" {
   description = <<-EOT
     List of Bedrock model IDs to allow access to.
 
-    Common model IDs (check region availability):
-    - anthropic.claude-3-haiku-20240307-v1:0     (Claude 3 Haiku - fast/cheap)
-    - anthropic.claude-3-sonnet-20240229-v1:0    (Claude 3 Sonnet)
-    - anthropic.claude-sonnet-4-5-20250929-v1:0  (Claude Sonnet 4.5 - requires inference profile)
-    - anthropic.claude-haiku-4-5-20251001-v1:0   (Claude Haiku 4.5 - requires inference profile)
-    - amazon.titan-text-express-v1              (Amazon Titan Text Express)
+    Available in ca-central-1 (on-demand):
+    - anthropic.claude-3-haiku-20240307-v1:0  (Claude 3 Haiku - recommended)
 
-    Note: Claude 4.5+ models require inference profiles for on-demand use.
+    NOT available for direct on-demand in ca-central-1:
+    - Claude 3.5/4.5 models require cross-region inference profiles
+      (e.g., us.anthropic.claude-opus-4-5-20251101-v1:0)
+
     Use "*" to allow all models (not recommended for production).
   EOT
   type        = list(string)
   default = [
-    "anthropic.claude-3-haiku-20240307-v1:0",
-    "anthropic.claude-3-sonnet-20240229-v1:0"
+    "anthropic.claude-3-haiku-20240307-v1:0"
   ]
 }
 
