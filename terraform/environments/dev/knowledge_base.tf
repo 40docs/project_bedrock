@@ -74,15 +74,6 @@ resource "aws_s3_bucket_public_access_block" "knowledge_base" {
   restrict_public_buckets = true
 }
 
-# Create folder structure for organized document management
-resource "aws_s3_object" "kb_folders" {
-  for_each = var.enable_knowledge_base ? toset(["documents/", "documents/policies/", "documents/guides/", "documents/faqs/"]) : []
-
-  bucket  = aws_s3_bucket.knowledge_base[0].id
-  key     = each.value
-  content = ""
-}
-
 # -----------------------------------------------------------------------------
 # OpenSearch Serverless Collection
 # -----------------------------------------------------------------------------
